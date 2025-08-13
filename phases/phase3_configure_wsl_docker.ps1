@@ -17,30 +17,13 @@ fi
 
         $check = wsl -d $distro -- bash -lc 'command -v docker >/dev/null 2>&1 && docker info --format {{.ServerVersion}} 2>/dev/null' 2>$null
         $needsInstall = $true
-        if ($LASTEXITCODE -eq 0 -and $check) { $needsInstall = $false }
-                                                                if ($needsInstall) {
-                                                                                                $steps = @(
-                                                                                                        'set -e',
-                                                                                                        'export DEBIAN_FRONTEND=noninteractive',
-                                                                                                        'sudo apt-get update -y',
-                                                                                                        'sudo apt-get install -y ca-certificates curl gnupg lsb-release',
-                                                                                                        'sudo install -m 0755 -d /etc/apt/keyrings',
-                                                                                                        'if [ ! -f /etc/apt/keyrings/docker.gpg ]; then curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg; sudo chmod a+r /etc/apt/keyrings/docker.gpg; fi',
-                                                                                                        'codename=$( . /etc/os-release; echo $UBUNTU_CODENAME )',
-                                                                                                        'echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $codename stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null',
-                                                                                                        'sudo apt-get update -y',
-                                                                                                        'sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin',
-                                                                                                        'sudo usermod -aG docker $USER || true',
-                                                                                                        'sudo systemctl enable docker || true',
-                                                                                                        'sudo systemctl restart docker || true',
-                                                                                                        'sleep 2',
-                                                                                                        'command -v docker >/dev/null 2>&1 || { echo install-missing-docker; exit 2; }',
-                                                                                                        'docker info >/dev/null 2>&1 || { echo engine-not-responding; exit 3; }'
-                                                                                                )
-                                                                                                $joined = ($steps -join ' && ')
-                                                                                                $installOut = wsl -d $distro -- bash -lc "$joined" 2>&1
-                                                                                                if ($LASTEXITCODE -ne 0) { Write-Error "Docker install failed: $installOut"; exit 1 }
-        }
+                if ($LASTEXITCODE -eq 0 -and $check) { $needsInstall = $false }
+                if ($needsInstall) {
+                        $helper = Join-Path (Split-Path $PSScriptRoot -Parent) 'utils/fix_docker_install.ps1'
+                        if (-not (Test-Path $helper)) { Write-Error 'Missing fix_docker_install.ps1 utility'; exit 1 }
+                        & $helper
+                        if ($LASTEXITCODE -ne 0) { Write-Error 'Docker install helper failed'; exit 1 }
+                }
 
         # Post-install hardening / config (optional: log rotate placeholder)
         $daemonConfig = @'
