@@ -1,0 +1,5 @@
+{
+  "minDriveFreePct": 10,
+  "maxVhdxGB": 80,
+  "warnModelsGB": 200
+}

@@ -1,0 +1,23 @@
+# Logs & reports
+reports/
+*.log
+
+# State (optional commit if you want history) - adjust if you prefer to track
+state/context_state.json
+state/history/
+
+# Baseline images & snapshots (large) - avoid committing
+K:/Baselines/WSL/
+K:/WSL/Snapshots/
+
+# Rootfs downloads (if placed under repo)
+*.rootfs.tar.gz
+*.tar
+*.tar.gz
+
+# PowerShell artifacts
+*.ps1.tmp
+
+# Misc
+*.DS_Store
+Thumbs.db
