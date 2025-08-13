@@ -155,7 +155,8 @@ function Update-HealthMetrics {
             try { $dockerImagesCount = (wsl -d Ubuntu-Dev -- docker images -q 2>$null | Measure-Object).Count } catch {}
             $line = ($ts, $vhdxGB, $modelsGB) + $drivePcts + $dockerImagesCount -join ','
             if (-not (Test-Path $metricsFile)) {
-                $header = 'timestamp,vhdxGB,modelsGB,' + ($healthBlock.drives | ForEach-Object { "drive_$($_.name)_freePct" } -join ',') + ',dockerImagesCount'
+                $driveHeaders = ($healthBlock.drives | ForEach-Object { "drive_$($_.name)_freePct" }) -join ','
+                $header = 'timestamp,vhdxGB,modelsGB,' + $driveHeaders + ',dockerImagesCount'
                 Set-Content -LiteralPath $metricsFile -Value $header -Encoding UTF8
             }
             Add-Content -LiteralPath $metricsFile -Value $line -Encoding UTF8

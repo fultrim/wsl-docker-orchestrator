@@ -43,7 +43,10 @@ docker info >/dev/null 2>&1 || { echo 'Docker engine not responding after instal
 '@
                         $b64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($inst))
                         $cmd = "echo $b64 | base64 -d > /tmp/docker_install.sh; chmod +x /tmp/docker_install.sh; sudo /bin/bash /tmp/docker_install.sh"
-                        wsl -d $distro -- bash -lc "$cmd" | Out-Null
+                                $installOut = wsl -d $distro -- bash -lc "$cmd" 2>&1
+                                if ($LASTEXITCODE -ne 0) {
+                                        Write-Error "Docker install script failed: $installOut"; exit 1
+                                }
         }
 
         # Post-install hardening / config (optional: log rotate placeholder)
@@ -56,7 +59,15 @@ docker info >/dev/null 2>&1 || { echo 'Docker engine not responding after instal
 '@
         wsl -d $distro -- bash -c "if [ ! -f /etc/docker/daemon.json ]; then echo '$daemonConfig' | sudo tee /etc/docker/daemon.json >/dev/null; sudo systemctl restart docker || true; fi" | Out-Null
 
-        Write-Output 'Phase 3 completed: systemd enabled and native Docker Engine ensured.'
+                # Final verification with small retry for daemon startup
+                $attempt=0; $ok=$false
+                while($attempt -lt 5 -and -not $ok){
+                        $attempt++
+                        $chk = wsl -d $distro -- bash -lc 'command -v docker >/dev/null 2>&1 && docker info --format {{.ServerVersion}} 2>/dev/null || true'
+                        if ($chk) { $ok=$true } else { Start-Sleep -Seconds 2 }
+                }
+                if (-not $ok) { Write-Error 'Docker engine not responding after installation retries.'; exit 1 }
+                Write-Output 'Phase 3 completed: systemd enabled and native Docker Engine ensured.'
 }
 catch {
         Write-Error "Phase 3 error: $($_.Exception.Message)"; exit 1
