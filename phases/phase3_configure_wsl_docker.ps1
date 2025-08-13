@@ -18,8 +18,6 @@ fi
         $check = wsl -d $distro -- bash -lc 'command -v docker >/dev/null 2>&1 && docker info --format {{.ServerVersion}} 2>/dev/null' 2>$null
         $needsInstall = $true
         if ($LASTEXITCODE -eq 0 -and $check) { $needsInstall = $false }
-
-docker info >/dev/null 2>&1 || { echo 'Docker engine not responding after install'; exit 2; }
                                                                 if ($needsInstall) {
                                                                                                 $steps = @(
                                                                                                         'set -e',
