@@ -19,35 +19,29 @@ fi
         $needsInstall = $true
         if ($LASTEXITCODE -eq 0 -and $check) { $needsInstall = $false }
 
-                if ($needsInstall) {
-                        $inst = @'
-set -e
-export DEBIAN_FRONTEND=noninteractive
-sudo apt-get update -y
-sudo apt-get install -y ca-certificates curl gnupg lsb-release software-properties-common
-sudo install -m 0755 -d /etc/apt/keyrings
-if [ ! -f /etc/apt/keyrings/docker.gpg ]; then
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-    sudo chmod a+r /etc/apt/keyrings/docker.gpg
-fi
-repoFile=/etc/apt/sources.list.d/docker.list
-codename=$( . /etc/os-release; echo $UBUNTU_CODENAME )
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $codename stable" | sudo tee $repoFile > /dev/null
-sudo apt-get update -y
-sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-sudo usermod -aG docker $USER || true
-sudo systemctl enable docker || true
-sudo systemctl restart docker || true
-sleep 2
 docker info >/dev/null 2>&1 || { echo 'Docker engine not responding after install'; exit 2; }
-'@
-                        $clean = ($inst -replace "`r")
-                        $b64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($clean))
-                        $cmd = @("base64 -d >/tmp/docker_install.sh <<'B64'","$b64","B64","chmod +x /tmp/docker_install.sh","sudo /bin/bash /tmp/docker_install.sh") -join ';'
-                        $installOut = wsl -d $distro -- bash -lc "$cmd" 2>&1
-                                if ($LASTEXITCODE -ne 0) {
-                                        Write-Error "Docker install script failed: $installOut"; exit 1
-                                }
+                                                                if ($needsInstall) {
+                                                                                                $steps = @(
+                                                                                                        'set -e',
+                                                                                                        'export DEBIAN_FRONTEND=noninteractive',
+                                                                                                        'sudo apt-get update -y',
+                                                                                                        'sudo apt-get install -y ca-certificates curl gnupg lsb-release',
+                                                                                                        'sudo install -m 0755 -d /etc/apt/keyrings',
+                                                                                                        'if [ ! -f /etc/apt/keyrings/docker.gpg ]; then curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg; sudo chmod a+r /etc/apt/keyrings/docker.gpg; fi',
+                                                                                                        'codename=$( . /etc/os-release; echo $UBUNTU_CODENAME )',
+                                                                                                        'echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $codename stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null',
+                                                                                                        'sudo apt-get update -y',
+                                                                                                        'sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin',
+                                                                                                        'sudo usermod -aG docker $USER || true',
+                                                                                                        'sudo systemctl enable docker || true',
+                                                                                                        'sudo systemctl restart docker || true',
+                                                                                                        'sleep 2',
+                                                                                                        'command -v docker >/dev/null 2>&1 || { echo install-missing-docker; exit 2; }',
+                                                                                                        'docker info >/dev/null 2>&1 || { echo engine-not-responding; exit 3; }'
+                                                                                                )
+                                                                                                $joined = ($steps -join ' && ')
+                                                                                                $installOut = wsl -d $distro -- bash -lc "$joined" 2>&1
+                                                                                                if ($LASTEXITCODE -ne 0) { Write-Error "Docker install failed: $installOut"; exit 1 }
         }
 
         # Post-install hardening / config (optional: log rotate placeholder)
