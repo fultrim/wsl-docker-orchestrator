@@ -6,9 +6,8 @@ reports/
 state/context_state.json
 state/history/
 
-# Baseline images & snapshots (large) - avoid committing
-K:/Baselines/WSL/
-K:/WSL/Snapshots/
+# Baseline images & snapshots are stored on K: outside the repo root
+# (cannot be excluded here because they are not under version control path).
 
 # Rootfs downloads (if placed under repo)
 *.rootfs.tar.gz
