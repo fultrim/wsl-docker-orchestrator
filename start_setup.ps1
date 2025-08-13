@@ -142,6 +142,24 @@ function Update-HealthMetrics {
         }
         $Global:ContextState.lastUpdated = (Get-Date).ToString('s')
         Persist-ContextState
+
+        # Append metrics line (timestamp,vhdxGB,modelsGB,<driveFreePct...>,dockerImagesCount)
+        try {
+            $metricsFile = Join-Path $StateDir 'metrics_history.csv'
+            $ts = Get-Date -Format 's'
+            $vhdxGB = [math]::Round($healthBlock.vhdxBytes/1GB,2)
+            $modelsGB = [math]::Round($healthBlock.modelsBytes/1GB,2)
+            $drivePcts = @()
+            foreach ($d in $healthBlock.drives) { if ($d.totalBytes -gt 0) { $drivePcts += [math]::Round(($d.freeBytes*100.0)/$d.totalBytes,2) } else { $drivePcts += '' } }
+            $dockerImagesCount = 0
+            try { $dockerImagesCount = (wsl -d Ubuntu-Dev -- docker images -q 2>$null | Measure-Object).Count } catch {}
+            $line = ($ts, $vhdxGB, $modelsGB) + $drivePcts + $dockerImagesCount -join ','
+            if (-not (Test-Path $metricsFile)) {
+                $header = 'timestamp,vhdxGB,modelsGB,' + ($healthBlock.drives | ForEach-Object { "drive_$($_.name)_freePct" } -join ',') + ',dockerImagesCount'
+                Set-Content -LiteralPath $metricsFile -Value $header -Encoding UTF8
+            }
+            Add-Content -LiteralPath $metricsFile -Value $line -Encoding UTF8
+        } catch { Write-Warning "Metrics append failed: $($_.Exception.Message)" }
     } catch { Write-Warning "Health metrics update failed: $($_.Exception.Message)" }
 }
 

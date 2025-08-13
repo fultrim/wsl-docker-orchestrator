@@ -1,0 +1,30 @@
+name: Metrics Commit
+on:
+  schedule:
+    - cron: '5 4 * * *'
+  workflow_dispatch:
+jobs:
+  metrics:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Refresh state & metrics
+        shell: pwsh
+        run: |
+          Set-ExecutionPolicy Bypass -Scope Process -Force
+          ./start_setup.ps1 -AutoAll
+          ./utils/collect_metrics.ps1
+      - name: Commit metrics delta
+        shell: pwsh
+        run: |
+          git config user.name 'automation-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          if (Test-Path state/metrics_history.csv) {
+            git add state/metrics_history.csv
+            if (-not (git diff --cached --quiet)) {
+              git commit -m 'chore(metrics): update metrics history'
+              git push
+            } else { Write-Host 'No metrics changes to commit.' }
+          }
