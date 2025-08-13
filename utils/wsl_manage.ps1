@@ -1,18 +1,21 @@
 param(
-    [Parameter(Mandatory=$true, Position=0)][ValidateSet('List','Move','Shrink','Export','Import')]$Command,
-    [string]$Name,
-    [string]$To,
-    [string]$Out,
-    [string]$From
+  [Parameter(Mandatory=$true, Position=0)][ValidateSet('List','Move','Shrink','Export','Import','Clone')]$Command,
+  [string]$Name,
+  [string]$To,
+  [string]$Out,
+  [string]$From,
+  [string]$NewName,
+  [string]$NewPath
 )
 <#
 WSL Management Utility
 Commands:
-  List                         - Show all distros, version, state, heuristic VHDX path & size
-  Move   -Name <Distro> -To <D:\TargetPath>
-  Shrink -Name <Distro>
-  Export -Name <Distro> -Out K:\Baselines\WSL\file.tar
-  Import -Name <Distro> -From <tar> -To <InstallDir>
+  List                                 - Show all distros, version, state, heuristic VHDX path & size
+  Move     -Name <Distro> -To <D:\TargetPath>
+  Shrink   -Name <Distro>
+  Export   -Name <Distro> -Out K:\Baselines\WSL\file.tar
+  Import   -Name <Distro> -From <tar> -To <InstallDir>
+  Clone    -Name <Distro> -NewName <CloneName> -NewPath <D:\TargetPath>  (export+import without removing source)
 #>
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -69,5 +72,18 @@ switch ($Command) {
     if (-not (Test-Path -LiteralPath $To)) { New-Item -ItemType Directory -Path $To -Force | Out-Null }
     wsl --import $Name $To $From --version 2
     Write-Output ("Imported {0} from {1} -> {2}" -f $Name,$From,$To)
+  }
+  'Clone' {
+    if (-not $Name -or -not $NewName -or -not $NewPath) { throw 'Clone requires -Name -NewName -NewPath' }
+    if (-not (wsl --list --quiet | Where-Object { $_ -eq $Name })) { throw "Source distro $Name not found" }
+    if ((wsl --list --quiet) -contains $NewName) { throw "Target distro $NewName already exists" }
+    if (-not (Test-Path -LiteralPath $NewPath)) { New-Item -ItemType Directory -Path $NewPath -Force | Out-Null }
+    $tmp = Join-Path $env:TEMP ("wslclone_{0}_to_{1}_{2}.tar" -f $Name,$NewName,(Get-Date -Format 'yyyyMMdd_HHmmss'))
+    Write-Output ("Exporting {0} -> {1}" -f $Name,$tmp)
+    wsl --export $Name $tmp
+    Write-Output ("Importing clone {0} -> {1}" -f $NewName,$NewPath)
+    wsl --import $NewName $NewPath $tmp --version 2
+    Remove-Item $tmp -Force
+    Write-Output ("Clone complete: {0} -> {1}" -f $Name,$NewName)
   }
 }
