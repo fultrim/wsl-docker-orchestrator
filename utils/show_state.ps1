@@ -12,3 +12,7 @@ if ($state.health.drives) {
   Write-Host ("Drives Used%: " + ($driveSumm -join ' '))
   Write-Host ("VHDX: {0:N2} GB" -f ($state.health.vhdxBytes/1GB))
 }
+if ($state.health.alerts) {
+  Write-Host 'Alerts:' -ForegroundColor Yellow
+  $state.health.alerts | ForEach-Object { Write-Host " - $_" -ForegroundColor Yellow }
+}

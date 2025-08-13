@@ -1,0 +1,23 @@
+name: Nightly Health
+on:
+  schedule:
+    - cron: '15 3 * * *'
+  workflow_dispatch:
+jobs:
+  nightly:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run phases non-interactively (health refresh)
+        shell: pwsh
+        run: |
+          Set-ExecutionPolicy Bypass -Scope Process -Force
+          ./start_setup.ps1 -AutoAll
+      - name: Validations & tests
+        shell: pwsh
+        run: |
+          ./tests/run_all_validations.ps1
+      - name: Show state
+        shell: pwsh
+        run: |
+          ./utils/show_state.ps1

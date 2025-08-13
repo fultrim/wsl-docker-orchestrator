@@ -1,6 +1,7 @@
 ﻿# start_setup.ps1 — robust launcher with atomic report writes (no file locks)
 param(
-    [string]$Start
+    [string]$Start,
+    [switch]$AutoAll
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -113,7 +114,7 @@ function Update-HealthMetrics {
         }
         if ($Global:ContextState -is [hashtable]) { $Global:ContextState['health']=$healthBlock } else { $Global:ContextState.health = $healthBlock }
 
-        # Threshold evaluation
+    # Threshold evaluation
         $thresholdFile = Join-Path $ScriptRoot 'config/thresholds.json'
         if (Test-Path $thresholdFile) {
             try {
@@ -131,7 +132,12 @@ function Update-HealthMetrics {
                 if ($thr.maxVhdxGB -and $vhdxGB -gt $thr.maxVhdxGB) { $alerts += "VHDX size high: $vhdxGB GB" }
                 $modelsGB = [math]::Round($healthBlock.modelsBytes/1GB,2)
                 if ($thr.warnModelsGB -and $modelsGB -gt $thr.warnModelsGB) { $alerts += "Models size high: $modelsGB GB" }
-                if ($alerts.Count -gt 0) { $Global:ContextState.health.alerts = $alerts }
+                if ($alerts.Count -gt 0) {
+                    $Global:ContextState.health.alerts = $alerts
+                    $alertsLog = Join-Path $StateDir 'alerts.log'
+                    $ts = Get-Date -Format 's'
+                    foreach ($a in $alerts) { Add-Content -LiteralPath $alertsLog -Value "[$ts] $a" -Encoding UTF8 }
+                }
             } catch { Write-Warning "Threshold evaluation failed: $($_.Exception.Message)" }
         }
         $Global:ContextState.lastUpdated = (Get-Date).ToString('s')
@@ -192,7 +198,14 @@ Section "WSL / Docker Setup Launcher"
 Write-Host "Available phases:" -ForegroundColor Cyan
 $Phases | ForEach-Object { Write-Host ("  {0}. {1}" -f $_.Id, $_.Name) }
 
-if (-not $Start) { $choice = Read-Host 'Enter starting phase number (1-4) or "all"' } else { $choice = $Start }
+function Resolve-StartChoice {
+    if ($AutoAll) { return 'all' }
+    if ($Start) { return $Start }
+    if ($env:CI -eq 'true' -or $env:GITHUB_ACTIONS -eq 'true' -or $env:ORCH_AUTO_ALL -eq '1') { return 'all' }
+    return $null
+}
+$choice = Resolve-StartChoice
+if (-not $choice) { $choice = Read-Host 'Enter starting phase number (1-4) or "all"' }
 if ($choice -match '^(all)$') { $startId = 1 }
 elseif ($choice -match '^[1-4]$') { $startId = [int]$choice }
 else { Write-Error ("Invalid selection: {0}" -f $choice); exit 1 }
