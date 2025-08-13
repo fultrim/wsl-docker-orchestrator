@@ -41,9 +41,10 @@ sudo systemctl restart docker || true
 sleep 2
 docker info >/dev/null 2>&1 || { echo 'Docker engine not responding after install'; exit 2; }
 '@
-                        $b64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($inst))
-                        $cmd = "echo $b64 | base64 -d > /tmp/docker_install.sh; chmod +x /tmp/docker_install.sh; sudo /bin/bash /tmp/docker_install.sh"
-                                $installOut = wsl -d $distro -- bash -lc "$cmd" 2>&1
+                        $clean = ($inst -replace "`r")
+                        $b64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($clean))
+                        $cmd = @("base64 -d >/tmp/docker_install.sh <<'B64'","$b64","B64","chmod +x /tmp/docker_install.sh","sudo /bin/bash /tmp/docker_install.sh") -join ';'
+                        $installOut = wsl -d $distro -- bash -lc "$cmd" 2>&1
                                 if ($LASTEXITCODE -ne 0) {
                                         Write-Error "Docker install script failed: $installOut"; exit 1
                                 }
