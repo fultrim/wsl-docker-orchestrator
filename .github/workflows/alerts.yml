@@ -1,0 +1,30 @@
+name: Health Alerts
+on:
+  workflow_run:
+    workflows: [Nightly Health]
+    types: [completed]
+jobs:
+  scan-alerts:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse alerts
+        id: parse
+        shell: pwsh
+        run: |
+          $alertsLog = 'state/alerts.log'
+          if(-not (Test-Path $alertsLog)){ Write-Host 'No alerts log present'; exit 0 }
+          $lines = Get-Content -LiteralPath $alertsLog -ErrorAction SilentlyContinue | Select-Object -Last 50
+          if(-not $lines){ Write-Host 'No recent alerts'; exit 0 }
+          $text = ($lines -join "`n")
+          if(-not $text){ exit 0 }
+          $issueBody = "### Recent Health Alerts`n`n" + $text + "`n`n_Automated by alerts workflow_"
+          Set-Content alerts_issue.md -Value $issueBody -Encoding UTF8
+      - name: Create / Update issue
+        if: steps.parse.outcome == 'success'
+        uses: peter-evans/create-issue-from-file@v5
+        with:
+          title: "Health Alerts Detected"
+          content-filepath: alerts_issue.md
+          labels: monitoring, alert

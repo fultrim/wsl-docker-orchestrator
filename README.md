@@ -86,3 +86,25 @@ See `reports/phaseN_run.log` and `reports/phaseN_report.txt`. If validation fail
 ## Disclaimer
 
 Scripts hard‑code drive letters per design. Ensure K: and P: are present before running or adapt (outside baseline acceptance criteria).
+
+## Automation & CI
+
+Workflows:
+
+- CI: Runs validations and tests on every push / PR.
+- Nightly Health: Non-interactive full run (`./start_setup.ps1 -AutoAll`) + tests + state display.
+- Health Alerts: Parses `state/alerts.log` after nightly run and opens an issue when threshold breaches occur.
+
+Non-interactive execution triggers if any is true:
+- `-AutoAll` switch provided
+- `ORCH_AUTO_ALL=1` environment variable
+- GitHub Actions (`CI=true` or `GITHUB_ACTIONS=true`)
+
+Run locally without prompts:
+```powershell
+./start_setup.ps1 -AutoAll
+# or
+$env:ORCH_AUTO_ALL='1'; ./start_setup.ps1
+```
+
+Alerts append to `state/alerts.log`; the alerts workflow surfaces them as an issue.
